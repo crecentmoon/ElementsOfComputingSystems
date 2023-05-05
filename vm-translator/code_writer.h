@@ -1,7 +1,7 @@
 #ifndef CODE_WRITER
 #define CODE_WRITER
 
-#include "Parser.h"
+#include "parser.h"
 #include <stdio.h>
 
 #define CODE_WRITER_VM_FILENAME_MAX_LENGTH (32)
@@ -16,13 +16,9 @@ struct CodeWriter
 };
 
 struct CodeWriter CodeWriter_construct(FILE *asmFilePath);
-
-void CodeWriter_setFileName(struct CodeWriter thisObject, char *fileName);
-
-void CodeWriter_writeArithmetic(struct CodeWriter thisObject, char *command);
-
-void CodeWriter_writePushPop(struct CodeWriter thisObject, Parser_CommandType command, char *segment, int index);
-
-void CodeWriter_close(struct CodeWriter thisObject);
+void CodeWriter_setFileName(struct CodeWriter cw, char *fileName);
+void CodeWriter_writeArithmetic(struct CodeWriter cw, char *command);
+void CodeWriter_writePushPop(struct CodeWriter cw, Parser_CommandType command, char *segment, int index);
+void CodeWriter_close(struct CodeWriter cw);
 
 #endif

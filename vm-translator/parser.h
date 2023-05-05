@@ -18,19 +18,15 @@ struct Parser
 
 typedef enum {
     PARSER_COMMAND_TYPE_C_ARITHMETIC = 1,
-    PARSER_COMMAND_TYPE_C_PUSH
+    PARSER_COMMAND_TYPE_C_PUSH,
+    PARSER_COMMAND_TYPE_C_POP,
 } Parser_CommandType;
 
-struct Parser Parser_init(FILE *vmFilePath);
-
+struct Parser Parser_construct(FILE *vmFilePath);
 bool Parser_hasMoreCommands(struct Parser thisObject);
-
 void Parser_advance(struct Parser thisObject);
-
 Parser_CommandType Parser_commandType(struct Parser thisObject);
-
-char Parser_arg1(struct Parser thisObject, char *arg1);
-
+void Parser_arg1(struct Parser thisObject, char *arg1);
 int Parser_arg2(struct Parser thisObject);
 
 #endif

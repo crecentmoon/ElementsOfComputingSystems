@@ -5,11 +5,8 @@
 #include "parser.h"
 #include "code_writer.h"
 
-// length(".asm") - length(".vm") = 1
 #define ASM_FILENAME_MAX_LENGTH (CODE_WRITER_VM_FILENAME_MAX_LENGTH + 1)
-// asmfilename = vmdirname + '.asm'
 #define VM_DIRNAME_MAX_LENGTH (CODE_WRITER_VM_FILENAME_MAX_LENGTH - 4)
-// asmfilename = vmfilename - '.vm' + '.asm'
 #define VM_FILENAME_MAX_LENGTH (CODE_WRITER_VM_FILENAME_MAX_LENGTH - 1)
 
 int translateByVmDir(DIR *dpVm, char *vmDirName);
@@ -18,7 +15,7 @@ bool isVmFileName(char *vmFileName);
 void createVmFilePath(char *vmDirName, char *vmFileName, char *vmFilePath);
 void createAsmFilePathFromDirName(char *vmDirName, char *asmFilePath);
 void createAsmFilePathFromVmFileName(char *vmFileName, char *asmFilePath);
-void translate(Parser parser, CodeWriter codeWriter);
+void translate(struct Parser parser, struct CodeWriter codeWriter);
 
 int main(int argc, char *argv[]) 
 {
@@ -58,8 +55,8 @@ int translateByVmDir(DIR *dpVm, char *vmDirName)
     int vmFileNum = 0;
     FILE *fpVm, *fpAsm;
     struct dirent *dEntry;
-    Parser parser;
-    CodeWriter codeWriter;
+    struct Parser parser;
+    struct CodeWriter codeWriter;
 
     if (strlen(vmDirName) > VM_DIRNAME_MAX_LENGTH) {
         fprintf(
@@ -77,7 +74,7 @@ int translateByVmDir(DIR *dpVm, char *vmDirName)
         fprintf(stderr, "Error: asm file not open (%s)\n", asmFilePath);
         return 1;
     }
-    codeWriter = CodeWriter_init(fpAsm);
+    codeWriter = CodeWriter_construct(fpAsm);
 
     while ((dEntry = readdir(dpVm)) != NULL) {
         char *vmFileName = dEntry->d_name;
@@ -107,7 +104,7 @@ int translateByVmDir(DIR *dpVm, char *vmDirName)
         }
         CodeWriter_setFileName(codeWriter, vmFileName);
 
-        parser = Parser_init(fpVm);
+        parser = Parser_construct(fpVm);
         translate(parser, codeWriter);
 
         fclose(fpVm);
@@ -128,8 +125,8 @@ int translateByVmFile(char *vmFileName)
 {
     char asmFilePath[ASM_FILENAME_MAX_LENGTH];
     FILE *fpVm, *fpAsm;
-    Parser parser;
-    CodeWriter codeWriter;
+    struct Parser parser;
+    struct CodeWriter codeWriter;
 
     if (! isVmFileName(vmFileName)) {
         fprintf(stderr, "Error: Vm filename extension(.vm) is invalid. (%s)\n", vmFileName);
@@ -151,7 +148,7 @@ int translateByVmFile(char *vmFileName)
         fprintf(stderr, "Error: vm file not found (%s)\n", vmFileName);
         return 1;
     }
-    parser = Parser_init(fpVm);
+    parser = Parser_construct(fpVm);
 
     createAsmFilePathFromVmFileName(vmFileName, asmFilePath);
     if ((fpAsm = fopen(asmFilePath, "w")) == NULL) {
@@ -159,7 +156,7 @@ int translateByVmFile(char *vmFileName)
         fclose(fpVm);
         return 1;
     }
-    codeWriter = CodeWriter_init(fpAsm);
+    codeWriter = CodeWriter_construct(fpAsm);
 
     CodeWriter_setFileName(codeWriter, vmFileName);
     translate(parser, codeWriter);
@@ -179,7 +176,6 @@ bool isVmFileName(char *vmFileName)
         return false;
     }
 
-    // vm filename is Xxx.vm
     if (! (vmFileName[vmFileNameLength - 3] == '.' && 
            vmFileName[vmFileNameLength - 2] == 'v' &&
            vmFileName[vmFileNameLength - 1] == 'm')) {
@@ -191,7 +187,6 @@ bool isVmFileName(char *vmFileName)
 
 void createVmFilePath(char *vmDirName, char *vmFileName, char *vmFilePath)
 {
-    // vmFilePath is {vmDirName}/{vmFileName}
     strcpy(vmFilePath, vmDirName);
     strcat(vmFilePath, "/");
     strcat(vmFilePath, vmFileName);
@@ -199,7 +194,6 @@ void createVmFilePath(char *vmDirName, char *vmFileName, char *vmFilePath)
 
 void createAsmFilePathFromDirName(char *vmDirName, char *asmFilePath)
 {
-    // AsmFilePath is {vmDirName}/{vmDirName}.asm
     strcpy(asmFilePath, vmDirName);
     strcat(asmFilePath, "/");
     strcat(asmFilePath, vmDirName);
@@ -208,7 +202,6 @@ void createAsmFilePathFromDirName(char *vmDirName, char *asmFilePath)
 
 void createAsmFilePathFromVmFileName(char *vmFileName, char *asmFilePath)
 {
-    // AsmFilePath is {vmFileName} - ".vm" + ".asm"
     size_t asmFileNamePrefixLength = strlen(vmFileName) - strlen(".vm");
     
     strncpy(asmFilePath, vmFileName, asmFileNamePrefixLength);
@@ -216,7 +209,7 @@ void createAsmFilePathFromVmFileName(char *vmFileName, char *asmFilePath)
     strcat(asmFilePath, ".asm");
 }
 
-void translate(Parser parser, CodeWriter codeWriter)
+void translate(struct Parser parser, struct CodeWriter codeWriter)
 {
     char command[PARSER_COMMAND_MAX_LENGTH + 1];
     char segment[PARSER_ARG1_MAX_LENGTH + 1];
@@ -229,6 +222,7 @@ void translate(Parser parser, CodeWriter codeWriter)
             CodeWriter_writeArithmetic(codeWriter, command);
             break;
         case PARSER_COMMAND_TYPE_C_PUSH:
+        case PARSER_COMMAND_TYPE_C_POP:
             Parser_arg1(parser, segment);
             CodeWriter_writePushPop(codeWriter, Parser_commandType(parser), segment, Parser_arg2(parser));
             break;
