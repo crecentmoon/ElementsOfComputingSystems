@@ -15,7 +15,7 @@ bool isVmFileName(char *vmFileName);
 void createVmFilePath(char *vmDirName, char *vmFileName, char *vmFilePath);
 void createAsmFilePathFromDirName(char *vmDirName, char *asmFilePath);
 void createAsmFilePathFromVmFileName(char *vmFileName, char *asmFilePath);
-void translate(struct Parser parser, struct CodeWriter codeWriter);
+void translate(Parser parser, CodeWriter codeWriter);
 
 int main(int argc, char *argv[]) 
 {
@@ -55,8 +55,8 @@ int translateByVmDir(DIR *dpVm, char *vmDirName)
     int vmFileNum = 0;
     FILE *fpVm, *fpAsm;
     struct dirent *dEntry;
-    struct Parser parser;
-    struct CodeWriter codeWriter;
+    Parser parser;
+    CodeWriter codeWriter;
 
     if (strlen(vmDirName) > VM_DIRNAME_MAX_LENGTH) {
         fprintf(
@@ -74,11 +74,12 @@ int translateByVmDir(DIR *dpVm, char *vmDirName)
         fprintf(stderr, "Error: asm file not open (%s)\n", asmFilePath);
         return 1;
     }
-    codeWriter = CodeWriter_construct(fpAsm);
+    codeWriter = CodeWriter_init(fpAsm);
+    CodeWriter_writeInit(codeWriter);
 
     while ((dEntry = readdir(dpVm)) != NULL) {
         char *vmFileName = dEntry->d_name;
-        if (dEntry->d_type != DT_REG) {  // not file
+        if (dEntry->d_type != DT_REG) {
             continue;
         }
         if (! isVmFileName(vmFileName)) {
@@ -104,12 +105,10 @@ int translateByVmDir(DIR *dpVm, char *vmDirName)
         }
         CodeWriter_setFileName(codeWriter, vmFileName);
 
-        parser = Parser_construct(fpVm);
+        parser = Parser_init(fpVm);
         translate(parser, codeWriter);
 
         fclose(fpVm);
-
-        break;
     }
     CodeWriter_close(codeWriter);
 
@@ -125,8 +124,8 @@ int translateByVmFile(char *vmFileName)
 {
     char asmFilePath[ASM_FILENAME_MAX_LENGTH];
     FILE *fpVm, *fpAsm;
-    struct Parser parser;
-    struct CodeWriter codeWriter;
+    Parser parser;
+    CodeWriter codeWriter;
 
     if (! isVmFileName(vmFileName)) {
         fprintf(stderr, "Error: Vm filename extension(.vm) is invalid. (%s)\n", vmFileName);
@@ -148,7 +147,7 @@ int translateByVmFile(char *vmFileName)
         fprintf(stderr, "Error: vm file not found (%s)\n", vmFileName);
         return 1;
     }
-    parser = Parser_construct(fpVm);
+    parser = Parser_init(fpVm);
 
     createAsmFilePathFromVmFileName(vmFileName, asmFilePath);
     if ((fpAsm = fopen(asmFilePath, "w")) == NULL) {
@@ -156,8 +155,8 @@ int translateByVmFile(char *vmFileName)
         fclose(fpVm);
         return 1;
     }
-    codeWriter = CodeWriter_construct(fpAsm);
-
+    codeWriter = CodeWriter_init(fpAsm);
+    CodeWriter_writeInit(codeWriter);
     CodeWriter_setFileName(codeWriter, vmFileName);
     translate(parser, codeWriter);
 
@@ -176,6 +175,7 @@ bool isVmFileName(char *vmFileName)
         return false;
     }
 
+    // vm filename is Xxx.vm
     if (! (vmFileName[vmFileNameLength - 3] == '.' && 
            vmFileName[vmFileNameLength - 2] == 'v' &&
            vmFileName[vmFileNameLength - 1] == 'm')) {
@@ -187,6 +187,7 @@ bool isVmFileName(char *vmFileName)
 
 void createVmFilePath(char *vmDirName, char *vmFileName, char *vmFilePath)
 {
+    // vmFilePath is {vmDirName}/{vmFileName}
     strcpy(vmFilePath, vmDirName);
     strcat(vmFilePath, "/");
     strcat(vmFilePath, vmFileName);
@@ -194,6 +195,7 @@ void createVmFilePath(char *vmDirName, char *vmFileName, char *vmFilePath)
 
 void createAsmFilePathFromDirName(char *vmDirName, char *asmFilePath)
 {
+    // AsmFilePath is {vmDirName}/{vmDirName}.asm
     strcpy(asmFilePath, vmDirName);
     strcat(asmFilePath, "/");
     strcat(asmFilePath, vmDirName);
@@ -209,7 +211,7 @@ void createAsmFilePathFromVmFileName(char *vmFileName, char *asmFilePath)
     strcat(asmFilePath, ".asm");
 }
 
-void translate(struct Parser parser, struct CodeWriter codeWriter)
+void translate(Parser parser, CodeWriter codeWriter)
 {
     char command[PARSER_COMMAND_MAX_LENGTH + 1];
     char segment[PARSER_ARG1_MAX_LENGTH + 1];
@@ -225,6 +227,29 @@ void translate(struct Parser parser, struct CodeWriter codeWriter)
         case PARSER_COMMAND_TYPE_C_POP:
             Parser_arg1(parser, segment);
             CodeWriter_writePushPop(codeWriter, Parser_commandType(parser), segment, Parser_arg2(parser));
+            break;
+        case PARSER_COMMAND_TYPE_C_LABEL:
+            Parser_arg1(parser, segment);
+            CodeWriter_writeLabel(codeWriter, segment);
+            break;
+        case PARSER_COMMAND_TYPE_C_GOTO:
+            Parser_arg1(parser, segment);
+            CodeWriter_writeGoto(codeWriter, segment);
+            break;
+        case PARSER_COMMAND_TYPE_C_IF:
+            Parser_arg1(parser, segment);
+            CodeWriter_writeIf(codeWriter, segment);
+            break;
+        case PARSER_COMMAND_TYPE_C_CALL:
+            Parser_arg1(parser, segment);
+            CodeWriter_writeCall(codeWriter, segment, Parser_arg2(parser));
+            break;
+        case PARSER_COMMAND_TYPE_C_RETURN:
+            CodeWriter_writeReturn(codeWriter);
+            break;
+        case PARSER_COMMAND_TYPE_C_FUNCTION:
+            Parser_arg1(parser, segment);
+            CodeWriter_writeFunction(codeWriter, segment, Parser_arg2(parser));
             break;
         default:
             break;
